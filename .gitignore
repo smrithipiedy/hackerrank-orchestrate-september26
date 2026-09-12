@@ -1,0 +1,6 @@
+.env
+venv/
+log.txt
+IDEA.md
+PLAN.md
+PROGRESS.md
