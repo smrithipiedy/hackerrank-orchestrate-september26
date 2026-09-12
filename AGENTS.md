@@ -255,3 +255,47 @@ Before responding to any user message, confirm:
 - [ ] I have verified that `tool=` exactly matches the harness or coding agent currently running.
 - [ ] I will not log secrets.
 - [ ] I will preserve the Buy or Wait? financial decision and output contract in §6.
+
+---
+
+## 9. Persistent Implementation Progress — PROGRESS.md
+
+`PROGRESS.md` is the persistent handoff state for this project. It exists so another coding-agent session or model can continue the work without relying on conversation memory.
+
+### 9.1 Mandatory Update Rule
+
+After **every user turn that results in implementation work, testing, debugging, refactoring, configuration changes, or a meaningful project decision**, update `PROGRESS.md` before responding.
+
+Also update it **before ending, pausing, or handing off any implementation session**, including when work is incomplete or blocked.
+
+### 9.2 Required Contents
+
+Keep `PROGRESS.md` concise and factual. Maintain:
+
+- **Current phase/status** — complete, in progress, or blocked.
+- **What changed** — brief summary of the latest work.
+- **Files changed** — relevant files only.
+- **Tests** — tests/commands run and their results.
+- **Decisions/issues** — important assumptions, bugs, specification discrepancies, or unresolved questions.
+- **Next step** — the single most useful action for continuing the work.
+
+Do not duplicate source code or lengthy explanations.
+
+### 9.3 Handoff Rule
+
+At the beginning of any new session, read `PROGRESS.md` and verify its contents against the actual repository state (`git status`, relevant files, and tests) before continuing.
+
+`PROGRESS.md` is a state summary, **not** a substitute for `problem_statement.md`, `AGENTS.md`, or the actual code.
+
+If `PROGRESS.md` conflicts with the repository or specification, verify the discrepancy and trust the higher-priority source rather than blindly following `PROGRESS.md`.
+
+### 9.4 Continuity Rule
+
+When work is interrupted, incomplete, or handed to another model/agent, record exactly:
+
+- what was completed,
+- what remains,
+- the current blocker (if any),
+- and the precise next action.
+
+Never claim a task is complete in `PROGRESS.md` unless the implementation and relevant tests actually confirm it.
