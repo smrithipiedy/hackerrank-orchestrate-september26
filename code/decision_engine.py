@@ -2,6 +2,7 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 from datetime import date
 import pandas as pd
+from code.explanation_generator import ExplanationGenerator
 
 logger = logging.getLogger(__name__)
 
@@ -12,10 +13,11 @@ class DecisionEngine:
     enforces payment-method eligibility/preferences, applies the strict
     6-tier ranking defined in problem_statement.md, handles safe fallback,
     and formats the final decision fields according to the project contract.
+    Phase 6: Integrates grounded explanation generation.
     """
 
     def __init__(self):
-        pass
+        self.explainer = ExplanationGenerator()
 
     def select_best_plan(self, candidates: List[Dict[str, Any]], deadline: date) -> Optional[Dict[str, Any]]:
         """
@@ -44,7 +46,8 @@ class DecisionEngine:
 
     def format_decision(self, request_id: str, best_plan: Optional[Dict[str, Any]],
                         req_date: date, amount_safe_to_pay: float,
-                        earliest_date_for_full_payment: Optional[date]) -> Dict[str, Any]:
+                        earliest_date_for_full_payment: Optional[date],
+                        explanation: str = "") -> Dict[str, Any]:
         """
         Formats the final decision according to the dataset/output.csv contract:
         - request_id
@@ -54,7 +57,7 @@ class DecisionEngine:
         - payment_plan
         - earliest_date_for_full_payment
         - spending_changes_needed
-        - decision_explanation (blank, synthesized in Phase 6)
+        - decision_explanation
         """
         if best_plan is None:
             # Fallback when no safe eligible plan is found
@@ -109,7 +112,7 @@ class DecisionEngine:
             'payment_plan': plan_str,
             'earliest_date_for_full_payment': full_date_str,
             'spending_changes_needed': changes_str,
-            'decision_explanation': ""
+            'decision_explanation': explanation
         }
 
     def evaluate_request(self, request_id: str, request_data: Dict[str, Any],
@@ -118,17 +121,59 @@ class DecisionEngine:
                          optimizer: Optional[Any] = None) -> Dict[str, Any]:
         """
         Orchestrates candidate generation via PlanOptimizer, selects the optimal plan
-        using 6-tier deterministic ranking, and formats the output dictionary.
+        using 6-tier deterministic ranking, synthesizes the grounded explanation,
+        and formats the output dictionary.
         """
         if optimizer is None:
             from code.plan_optimizer import PlanOptimizer
             optimizer = PlanOptimizer()
 
-        # Generate candidates using PlanOptimizer
-        return optimizer.optimize(
+        # 1. Base simulation for safe today & earliest full payment date
+        req_date = pd.to_datetime(request_data['request_date']).date()
+        req_amt = float(request_data['requested_amount'])
+        deadline = pd.to_datetime(request_data['desired_completion_date']).date()
+
+        from code.cashflow_simulator import CashFlowSimulator
+        base_sim = CashFlowSimulator(user_profile, cleaned_ledger)
+        safe_today_raw = base_sim.calculate_safe_today_capacity(req_date)
+        amount_safe_to_pay = min(req_amt, max(0.0, safe_today_raw))
+        earliest_date_for_full_payment = base_sim.find_earliest_full_payment_date(req_amt, req_date)
+
+        # 2. Optimize plan
+        opt_res = optimizer.optimize(
             request_id=request_id,
             request_data=request_data,
             user_profile=user_profile,
             cleaned_ledger=cleaned_ledger,
             payment_options=payment_options
         )
+
+        # 3. Best plan details reconstructed for explanation synthesis
+        best_plan = None
+        method = opt_res['recommended_payment_method']
+        if method != 'not_recommended':
+            # Parse payments from opt_res['payment_plan']
+            payments = []
+            if opt_res['payment_plan'] != 'none':
+                for part in opt_res['payment_plan'].split('|'):
+                    d_str, a_str = part.split(':')
+                    payments.append((pd.to_datetime(d_str).date(), float(a_str)))
+
+            best_plan = {
+                'method': method,
+                'payments': payments,
+                'total_amount': sum(a for _, a in payments) if payments else req_amt,
+                'spending_changes': [] if opt_res['spending_changes_needed'] == 'none' else opt_res['spending_changes_needed'].split('|'),
+                'payment_option_id': None
+            }
+
+        # 4. Synthesize explanation
+        explanation = self.explainer.generate_explanation(
+            request_data=request_data,
+            user_profile=user_profile,
+            decision=opt_res,
+            best_plan=best_plan
+        )
+        opt_res['decision_explanation'] = explanation
+
+        return opt_res
