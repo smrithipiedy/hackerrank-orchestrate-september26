@@ -60,6 +60,26 @@ class TestPhase2(unittest.TestCase):
         except (AttributeError, ImportError):
             self.skipTest("genai not available in environment for patching")
 
+    def test_message_parser_circuit_breaker_on_429(self):
+        """Verify that after a 429 quota error, subsequent calls do not call Gemini."""
+        try:
+            with patch('code.message_parser.genai.Client') as mock_client:
+                mock_client.return_value.models.generate_content.side_effect = Exception("429 RESOURCE_EXHAUSTED")
+                parser = MessageParser(api_key="fake_key")
+
+                # First call triggers 429
+                res1 = parser.parse_message("Message 1", {"user_id": "user_1"})
+                self.assertEqual(res1, [])
+                self.assertTrue(parser.is_disabled)
+                self.assertEqual(mock_client.return_value.models.generate_content.call_count, 1)
+
+                # Second call should immediately short-circuit without calling generate_content
+                res2 = parser.parse_message("Message 2", {"user_id": "user_1"})
+                self.assertEqual(res2, [])
+                self.assertEqual(mock_client.return_value.models.generate_content.call_count, 1)
+        except (AttributeError, ImportError):
+            self.skipTest("genai not available in environment for patching")
+
     def test_conflict_resolution_priority(self):
         """Verify that Explicit Amendments override other records."""
         amendments = [{'event_id': 'event_1', 'new_amount': 200.0, 'amendment_type': 'amount_change'}]

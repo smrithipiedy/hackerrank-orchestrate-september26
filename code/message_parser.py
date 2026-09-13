@@ -42,12 +42,16 @@ class MessageParser:
 
     def __init__(self, api_key: Optional[str] = None):
         self.api_key = api_key
+        self.is_disabled = False
 
     def parse_message(self, message_text: str, context: Dict[str, Any]) -> List[FinancialAmendment]:
         """
         Extracts financial amendments from a message.
         Treated as evidence only; directives are ignored.
         """
+        if self.is_disabled:
+            return []
+
         if not self.api_key or not HAS_AI_LIBS:
             logger.warning("AI libraries or API key missing. Returning empty amendments.")
             return []
@@ -91,5 +95,10 @@ class MessageParser:
             return amendments
 
         except Exception as e:
-            logger.error(f"Message parsing failed: {e}")
+            err_str = str(e)
+            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+                self.is_disabled = True
+                logger.warning("Gemini API quota exceeded (429 / RESOURCE_EXHAUSTED). Disabling further Gemini calls for this run.")
+            else:
+                logger.error(f"Message parsing failed: {e}")
             return []

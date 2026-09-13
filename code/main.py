@@ -2,6 +2,7 @@ import logging
 import os
 import pandas as pd
 from typing import Optional
+from dotenv import load_dotenv
 
 from code.ingestion import DataIngestor
 from code.perception_pipeline import PerceptionPipeline
@@ -23,6 +24,9 @@ def run_pipeline(dataset_dir: str = "dataset", output_path: str = "dataset/outpu
     5. Output: writes dataset/output.csv matching the required contract.
     """
     logger.info("Initializing Buy or Wait? Financial Decision Agent Pipeline...")
+    load_dotenv()
+    if api_key is None:
+        api_key = os.getenv("GEMINI_API_KEY")
 
     # Step 1: Ingestion
     logger.info("Step 1: Ingesting dataset files...")
@@ -95,6 +99,7 @@ def run_pipeline(dataset_dir: str = "dataset", output_path: str = "dataset/outpu
     return out_df
 
 def main():
+    load_dotenv()
     api_key = os.getenv("GEMINI_API_KEY")
     run_pipeline(dataset_dir="dataset", output_path="dataset/output.csv", api_key=api_key)
 
