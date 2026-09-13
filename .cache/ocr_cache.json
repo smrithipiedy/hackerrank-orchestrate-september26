@@ -2,5 +2,85 @@
   "test_img.png": {
     "total_amount": 50.0,
     "currency": "USD"
+  },
+  "dataset/media/images/image_01.png": {
+    "total_amount": 899763619907000.0,
+    "currency": "Unknown",
+    "source": "easyocr"
+  },
+  "dataset/media/images/image_02.png": {
+    "total_amount": 9999999000.0,
+    "currency": "Unknown",
+    "source": "easyocr"
+  },
+  "dataset/media/images/image_03.png": {
+    "total_amount": 771125000158.0,
+    "currency": "Unknown",
+    "source": "easyocr"
+  },
+  "dataset/media/images/image_04.png": {
+    "total_amount": 8531.0,
+    "currency": "Unknown",
+    "source": "easyocr"
+  },
+  "dataset/media/images/image_05.png": {
+    "total_amount": 62026.0,
+    "currency": "Unknown",
+    "source": "easyocr"
+  },
+  "dataset/media/images/image_06.png": {
+    "total_amount": 10018064001545.0,
+    "currency": "Unknown",
+    "source": "easyocr"
+  },
+  "dataset/media/images/image_07.png": {
+    "total_amount": 8040996000653160.0,
+    "currency": "Unknown",
+    "source": "easyocr"
+  },
+  "dataset/media/images/image_08.png": {
+    "total_amount": 4.7455425897729304e+16,
+    "currency": "Unknown",
+    "source": "easyocr"
+  },
+  "dataset/media/images/image_09.png": {
+    "total_amount": 3.93508109045918e+24,
+    "currency": "Unknown",
+    "source": "easyocr"
+  },
+  "dataset/media/images/image_10.png": {
+    "total_amount": 2202992.0,
+    "currency": "Unknown",
+    "source": "easyocr"
+  },
+  "dataset/media/images/image_11.png": {
+    "total_amount": 200064299247.0,
+    "currency": "Unknown",
+    "source": "easyocr"
+  },
+  "dataset/media/images/image_12.png": {
+    "total_amount": 892320251001.0,
+    "currency": "Unknown",
+    "source": "easyocr"
+  },
+  "dataset/media/images/image_13.png": {
+    "total_amount": 82298.0,
+    "currency": "Unknown",
+    "source": "easyocr"
+  },
+  "dataset/media/images/image_14.png": {
+    "total_amount": 496.0,
+    "currency": "Unknown",
+    "source": "easyocr"
+  },
+  "dataset/media/images/image_15.png": {
+    "total_amount": 996425.0,
+    "currency": "Unknown",
+    "source": "easyocr"
+  },
+  "dataset/media/images/image_16.png": {
+    "total_amount": 996749.0,
+    "currency": "Unknown",
+    "source": "easyocr"
   }
 }

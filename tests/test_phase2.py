@@ -41,6 +41,8 @@ class TestPhase2(unittest.TestCase):
 
         self.assertEqual(amt1, 50.0)
         self.assertEqual(amt2, 50.0)
+        # Since Gemini is mocked as None (no api_key), it goes to fallback.
+        # Fallback is cached.
         self.ocr._get_local_fallback.assert_called_once()
 
     def test_message_firewall(self):

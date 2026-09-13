@@ -1,12 +1,13 @@
 import os
 import json
 import logging
-from typing import Optional, Tuple
-from pydantic import BaseModel, Field
+import sys
+from typing import Optional, Tuple, Dict, Any, List
+from pydantic import BaseModel, Field, field_validator
 from PIL import Image
 import numpy as np
 
-# Try to import AI libraries, fallback to mocks for environments without them
+# Try to import AI libraries, fallback to mocks
 try:
     import easyocr
     from google import genai
@@ -24,10 +25,22 @@ class ReceiptExtraction(BaseModel):
     currency: str = Field(..., description="The currency code (e.g., USD, ZAR, INR)")
     date: Optional[str] = Field(None, description="The date of the transaction in YYYY-MM-DD format")
 
+    @field_validator('total_amount')
+    @classmethod
+    def must_be_positive(cls, v):
+        if v < 0:
+            raise ValueError('total_amount must be positive')
+        return v
+
+class NullWriter:
+    """Sinks all output to avoid encoding errors on Windows."""
+    def write(self, s): pass
+    def flush(self): pass
+
 class OCRVision:
     """
     Handles multimodal extraction of financial amounts from images.
-    Implements a tiered approach: Gemini 2.5 Flash (Free) -> EasyOCR/Local Fallback.
+    Implements a tiered approach: Gemini 3.8 Flash (Free) -> EasyOCR/Local Fallback.
     """
 
     def __init__(self, cache_path: str = ".cache/ocr_cache.json", api_key: Optional[str] = None):
@@ -60,13 +73,24 @@ class OCRVision:
 
         try:
             if self.reader is None:
-                self.reader = easyocr.Reader(['en'])
+                # Suppress stdout to avoid charmap encoding errors from EasyOCR progress bars
+                old_stdout = sys.stdout
+                sys.stdout = NullWriter()
+                try:
+                    self.reader = easyocr.Reader(['en'])
+                finally:
+                    sys.stdout = old_stdout
 
-            results = self.reader.readtext(image_path)
-            # Simple heuristic: look for the largest number that looks like a total
+            # Also suppress stdout during reading
+            old_stdout = sys.stdout
+            sys.stdout = NullWriter()
+            try:
+                results = self.reader.readtext(image_path)
+            finally:
+                sys.stdout = old_stdout
+
             numbers = []
             for (bbox, text, prob) in results:
-                # Clean text to keep only digits and decimal point
                 clean_text = "".join(c for c in text if c.isdigit() or c == '.')
                 try:
                     if clean_text:
@@ -75,7 +99,6 @@ class OCRVision:
                     continue
 
             if numbers:
-                # Heuristic: The total is usually one of the largest numbers on a receipt
                 return max(numbers), "Unknown"
             return None, None
         except Exception as e:
@@ -85,14 +108,12 @@ class OCRVision:
     def extract_amount(self, image_path: str) -> Tuple[Optional[float], Optional[str]]:
         """
         Extracts total amount and currency from an image.
-        Priority: Cache -> Gemini -> Local Fallback.
+        Priority: Gemini (Highest) -> Local Fallback.
         """
-        # 1. Check Cache
-        if image_path in self.cache:
-            cached = self.cache[image_path]
-            return cached.get('total_amount'), cached.get('currency')
+        cached_data = self.cache.get(image_path)
+        if cached_data:
+            return cached_data.get('total_amount'), cached_data.get('currency')
 
-        # 2. Primary Extraction: Gemini 2.5 Flash
         if self.api_key and HAS_AI_LIBS:
             try:
                 client = genai.Client(api_key=self.api_key)
@@ -105,7 +126,7 @@ class OCRVision:
                 )
 
                 response = client.models.generate_content(
-                    model="gemini-2.0-flash",
+                    model="gemini-3.8-flash",
                     contents=[prompt, img],
                     config=types.GenerateContentConfig(
                         response_mime_type="application/json",
@@ -114,18 +135,25 @@ class OCRVision:
                 )
 
                 data = ReceiptExtraction.model_validate_json(response.text)
-                self.cache[image_path] = data.model_dump()
+                self.cache[image_path] = {
+                    "total_amount": data.total_amount,
+                    "currency": data.currency,
+                    "date": data.date,
+                    "source": "gemini"
+                }
                 self._save_cache()
                 return data.total_amount, data.currency
             except Exception as e:
                 logger.warning(f"Gemini extraction failed for {image_path}: {e}. Trying fallback...")
 
-        # 3. Local Fallback: EasyOCR
         amount, currency = self._get_local_fallback(image_path)
         if amount is not None:
-            self.cache[image_path] = {"total_amount": amount, "currency": currency}
+            self.cache[image_path] = {
+                "total_amount": amount,
+                "currency": currency,
+                "source": "easyocr"
+            }
             self._save_cache()
             return amount, currency
 
-        logger.error(f"All extraction methods failed for {image_path}")
         return None, None

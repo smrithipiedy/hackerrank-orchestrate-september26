@@ -1,6 +1,7 @@
 {
   "test_img.png": {
     "total_amount": 50.0,
-    "currency": "USD"
+    "currency": "USD",
+    "source": "easyocr"
   }
 }
